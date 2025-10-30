@@ -1,0 +1,17 @@
+{
+  "name": "pornster-backend",
+  "version": "1.0.0",
+  "description": "Backend API en Express para servir datos al frontend.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "author": "Durottar",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.1.0"
+  }
+}

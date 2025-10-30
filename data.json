@@ -1,0 +1,19 @@
+{
+  "/c/Gapes-167": [
+    {
+      "id": "51121419",
+      "title": "Video de prueba - Ejemplo de dataset",
+      "duration": "5 min",
+      "category": "/c/Gapes-167",
+      "page_url": "https://example.com/video",
+      "video_src": null,
+      "thumbnail_src": null,
+      "url": "https://example.com/video.mp4",
+      "thumbnail": "https://example.com/thumb.jpg",
+      "total_votes": "696 votos",
+      "good_votes": "431",
+      "bad_votes": "265",
+      "available_qualities": []
+    }
+  ]
+}
