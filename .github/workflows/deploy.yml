@@ -22,7 +22,7 @@ jobs:
           script: |
             cd /var/app/backend
             git pull origin main
-            npm install
-            pm2 restart api || pm2 start server.js --name api --interpreter node
+            pip3 install -r requirements.txt
+            pm2 restart api || pm2 start app.py --name api --interpreter python3
             pm2 save
             nginx -t && systemctl reload nginx
