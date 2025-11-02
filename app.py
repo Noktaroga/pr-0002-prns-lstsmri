@@ -62,6 +62,7 @@ def get_videos():
         page = int(request.args.get('page', 1))
         size = int(request.args.get('size', 20))
         category = request.args.get('category')
+        print(f"[DEBUG] Parámetro category recibido: {category}")
         with open(DATA_FILE, 'r', encoding='utf-8') as f:
             data = json.load(f)
         # Filtrar por categoría si se especifica
@@ -74,6 +75,7 @@ def get_videos():
                 videos = [v for v in data if v.get('category') == category]
             else:
                 return jsonify({'error': 'Formato de data.json no soportado'}), 500
+            print(f"[DEBUG] Videos filtrados por categoría '{category}': {len(videos)}")
         else:
             # Unificar todos los videos si no hay filtro
             if isinstance(data, dict):
@@ -84,10 +86,12 @@ def get_videos():
                 videos = data
             else:
                 return jsonify({'error': 'Formato de data.json no soportado'}), 500
+            print(f"[DEBUG] Videos sin filtrar (todas las categorías): {len(videos)}")
         total = len(videos)
         start = (page - 1) * size
         end = start + size
-        paginated = videos[start:end]
+        paginated = videos[start:end] if videos else []
+        print(f"[DEBUG] Paginando: start={start}, end={end}, paginated={len(paginated)}")
         response = jsonify({
             'videos': paginated,
             'total': total,
