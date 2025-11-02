@@ -32,6 +32,8 @@ jobs:
             fi
             pip install --upgrade pip
             pip install -r requirements.txt
-            pm2 restart api || pm2 start app.py --name api --interpreter ./venv/bin/python
+            pm2 delete api || true
+            pm2 prune
+            pm2 start app.py --name api --interpreter ./venv/bin/python
             pm2 save
             nginx -t && systemctl reload nginx
