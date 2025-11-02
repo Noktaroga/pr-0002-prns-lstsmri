@@ -58,9 +58,45 @@ def selenium_scrape():
 @cross_origin()
 def get_videos():
     try:
+        # Obtener parámetros de paginación y filtrado
+        page = int(request.args.get('page', 1))
+        size = int(request.args.get('size', 20))
+        category = request.args.get('category')
         with open(DATA_FILE, 'r', encoding='utf-8') as f:
             data = json.load(f)
-        return jsonify(data)
+        # Filtrar por categoría si se especifica
+        if category:
+            # Si data es dict, buscar la categoría como clave
+            if isinstance(data, dict):
+                videos = data.get(category, [])
+            # Si data es lista, filtrar por campo 'category'
+            elif isinstance(data, list):
+                videos = [v for v in data if v.get('category') == category]
+            else:
+                return jsonify({'error': 'Formato de data.json no soportado'}), 500
+        else:
+            # Unificar todos los videos si no hay filtro
+            if isinstance(data, dict):
+                videos = []
+                for vids in data.values():
+                    videos.extend(vids)
+            elif isinstance(data, list):
+                videos = data
+            else:
+                return jsonify({'error': 'Formato de data.json no soportado'}), 500
+        total = len(videos)
+        start = (page - 1) * size
+        end = start + size
+        paginated = videos[start:end]
+        response = jsonify({
+            'videos': paginated,
+            'total': total,
+            'page': page,
+            'size': size,
+            'category': category
+        })
+        response.headers['Cache-Control'] = 'no-store'
+        return response
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
