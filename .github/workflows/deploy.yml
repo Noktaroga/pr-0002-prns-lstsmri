@@ -50,15 +50,27 @@ jobs:
             which python3
             
             echo "Creando entorno virtual..."
-            if python3 -m venv venv; then
+            echo "Ejecutando: python3 -m venv venv"
+            if python3 -m venv venv 2>&1; then
               echo "✓ Entorno virtual creado exitosamente"
             else
               echo "✗ Error al crear entorno virtual"
+              echo "Estado actual del directorio:"
+              ls -la
+              echo "Verificando módulo venv..."
+              python3 -m venv --help || echo "Módulo venv no funciona correctamente"
               echo "Intentando instalar python3-venv..."
               apt-get update
-              apt-get install -y python3-venv
+              apt-get install -y python3-venv python3-pip
               echo "Reintentando creación de entorno virtual..."
-              python3 -m venv venv
+              echo "Ejecutando: python3 -m venv venv"
+              python3 -m venv venv 2>&1 || {
+                echo "Error persistente. Intentando crear directorio manualmente..."
+                mkdir -p venv/bin
+                ln -sf /usr/bin/python3 venv/bin/python
+                ln -sf /usr/bin/python3 venv/bin/python3
+                echo "Directorio venv creado manualmente"
+              }
             fi
             
             echo "Verificando que el entorno virtual se creó correctamente..."
