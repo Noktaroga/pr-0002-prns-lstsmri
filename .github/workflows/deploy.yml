@@ -28,7 +28,21 @@ jobs:
             
             echo "[2] Actualizando código backend..."
             cd /var/app/backend
-            git pull origin main
+            
+            # Limpiar archivos que puedan causar conflictos con git
+            echo "Limpiando archivos temporales y entorno virtual anterior..."
+            if [ -d "venv" ]; then
+              echo "Respaldando entorno virtual anterior..."
+              mv venv venv_backup_$(date +%s) || rm -rf venv
+            fi
+            
+            # Limpiar otros archivos temporales
+            rm -f *.log
+            rm -rf __pycache__
+            
+            # Actualizar código
+            git fetch origin main
+            git reset --hard origin/main
             
             echo "[3] Configurando entorno Python..."
             if [ -d "venv" ]; then
