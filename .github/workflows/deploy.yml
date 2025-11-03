@@ -45,8 +45,21 @@ jobs:
             git clean -fd
             
             echo "[3] Configurando entorno Python..."
+            echo "Verificando Python disponible..."
+            python3 --version
+            which python3
+            
             echo "Creando entorno virtual..."
-            python3 -m venv venv
+            if python3 -m venv venv; then
+              echo "✓ Entorno virtual creado exitosamente"
+            else
+              echo "✗ Error al crear entorno virtual"
+              echo "Intentando instalar python3-venv..."
+              apt-get update
+              apt-get install -y python3-venv
+              echo "Reintentando creación de entorno virtual..."
+              python3 -m venv venv
+            fi
             
             echo "Verificando que el entorno virtual se creó correctamente..."
             if [ ! -d "venv" ]; then
