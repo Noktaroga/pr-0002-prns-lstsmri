@@ -45,7 +45,25 @@ jobs:
             git clean -fd
             
             echo "[3] Configurando entorno Python..."
+            echo "Creando entorno virtual..."
             python3 -m venv venv
+            
+            echo "Verificando que el entorno virtual se creó correctamente..."
+            if [ ! -d "venv" ]; then
+              echo "ERROR: El directorio venv no se creó"
+              exit 1
+            fi
+            
+            if [ ! -f "venv/bin/python" ]; then
+              echo "ERROR: No se encuentra venv/bin/python"
+              echo "Contenido del directorio venv:"
+              ls -la venv/ || echo "No se puede listar venv"
+              echo "Contenido del directorio venv/bin:"
+              ls -la venv/bin/ || echo "No se puede listar venv/bin"
+              exit 1
+            fi
+            
+            echo "Activando entorno virtual..."
             source venv/bin/activate
             pip install --upgrade pip
             pip install -r requirements.txt
