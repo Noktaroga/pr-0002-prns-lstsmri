@@ -67,12 +67,18 @@ jobs:
               exit 1
             fi
             
-            if [ ! -f "venv/bin/python" ]; then
-              echo "ERROR: No se encuentra venv/bin/python"
-              echo "Contenido del directorio venv:"
-              ls -la venv/ || echo "No se puede listar venv"
-              echo "Contenido del directorio venv/bin:"
-              ls -la venv/bin/ || echo "No se puede listar venv/bin"
+            echo "Contenido del directorio venv/bin:"
+            ls -la venv/bin/
+            
+            # Buscar el ejecutable Python correcto
+            if [ -f "venv/bin/python3" ]; then
+              PYTHON_EXEC="venv/bin/python3"
+              echo "✓ Usando python3"
+            elif [ -f "venv/bin/python" ]; then
+              PYTHON_EXEC="venv/bin/python"
+              echo "✓ Usando python"
+            else
+              echo "ERROR: No se encuentra ejecutable Python en venv/bin/"
               exit 1
             fi
             
@@ -86,7 +92,7 @@ jobs:
             sleep 2
             
             echo "[5] Iniciando API con PM2..."
-            pm2 start app.py --name api --interpreter ./venv/bin/python --instances 1
+            pm2 start app.py --name api --interpreter ./$PYTHON_EXEC --instances 1
             pm2 save
             
             echo "[6] Verificando API..."
