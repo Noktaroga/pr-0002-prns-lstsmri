@@ -22,28 +22,30 @@ jobs:
           script: |
             set -e
             
-            echo "[1] Actualizando sistema base..."
+            echo "[1] Configurando entorno del sistema..."
             apt-get update
             apt-get install -y chromium-browser chromium-chromedriver
             
-            echo "[2] Actualizando código backend..."
+            # Configurar PATH para Node.js, npm y PM2
+            export PATH=/root/.nvm/versions/node/v24.11.0/bin:$PATH
+            
+            echo "[2] Verificando herramientas..."
+            echo "Node: $(node --version 2>/dev/null || echo 'No disponible')"
+            echo "NPM: $(npm --version 2>/dev/null || echo 'No disponible')"
+            echo "PM2: $(pm2 --version 2>/dev/null || echo 'No disponible')"
+            echo "Python: $(python3 --version)"
+            
+            echo "[3] Preparando directorio backend..."
             cd /var/app/backend
             
-            # Detener servicios antes de limpiar
+            # Detener servicios antes de limpiar (con PATH configurado)
             echo "Deteniendo servicios PM2..."
             pm2 stop api || true
             pm2 delete api || true
             
-            # Limpiar archivos que puedan causar conflictos con git
-            echo "Limpiando archivos temporales y entorno virtual anterior..."
-            if [ -d "venv" ]; then
-              echo "Eliminando entorno virtual anterior..."
-              rm -rf venv
-            fi
-            
-            # Limpiar otros archivos temporales
-            rm -f *.log
-            rm -rf __pycache__
+            # Limpieza completa del directorio
+            echo "Limpiando archivos anteriores..."
+            rm -rf venv venv_backup_* node_modules package*.json *.log __pycache__
             
             # Actualizar código limpiamente
             echo "Actualizando código desde repositorio..."
@@ -51,29 +53,48 @@ jobs:
             git reset --hard origin/main
             git clean -fd
             
-            echo "[3] Configurando entorno Python..."
-            # Crear un nuevo entorno virtual siempre después de la limpieza
+            echo "[4] Configurando entorno Python..."
+            echo "Creando nuevo entorno virtual..."
             python3 -m venv venv
+            
+            echo "Activando entorno virtual..."
             source venv/bin/activate
+            
+            echo "Verificando activación..."
+            which python
+            python --version
+            
+            echo "Instalando dependencias Python..."
             pip install --upgrade pip
             pip install -r requirements.txt
             
-            echo "[4] Verificando puerto y preparando PM2..."
+            echo "[5] Verificando puerto y preparando PM2..."
             # Verificar que el puerto esté libre
             if lsof -i:3001 > /dev/null 2>&1; then
               echo "Liberando puerto 3001..."
               lsof -ti:3001 | xargs kill -9 || true
-              sleep 2
+              sleep 3
             fi
             
-            echo "[5] Iniciando nueva instancia de la API..."
-            pm2 start app.py --name api --interpreter /var/app/backend/venv/bin/python --instances 1
+            echo "[6] Iniciando nueva instancia de la API..."
+            # Asegurar que usamos la ruta completa del intérprete
+            PYTHON_PATH="/var/app/backend/venv/bin/python"
+            echo "Usando Python en: $PYTHON_PATH"
             
-            echo "[6] Esperando que la API esté lista..."
+            # Verificar que el intérprete existe
+            if [ ! -f "$PYTHON_PATH" ]; then
+              echo "Error: No se encontró Python en $PYTHON_PATH"
+              ls -la /var/app/backend/venv/bin/
+              exit 1
+            fi
+            
+            pm2 start app.py --name api --interpreter "$PYTHON_PATH" --instances 1
+            
+            echo "[7] Esperando que la API esté lista..."
             # Verificar que la API responda
             for i in {1..30}; do
-              if curl -s http://localhost:3001/health > /dev/null 2>&1 || curl -s http://localhost:3001 > /dev/null 2>&1; then
-                echo "API respondiendo correctamente"
+              if curl -s http://localhost:3001/health > /dev/null 2>&1 || curl -s http://localhost:3001/api > /dev/null 2>&1; then
+                echo "✓ API respondiendo correctamente"
                 break
               fi
               echo "Esperando API... ($i/30)"
@@ -82,8 +103,12 @@ jobs:
             
             pm2 save
             
-            echo "[7] Recargando nginx..."
+            echo "[8] Recargando nginx..."
             nginx -t && systemctl reload nginx
             
-            echo "[8] Creando señal de finalización para frontend..."
+            echo "[9] Creando señal de finalización para frontend..."
             echo "$(date)" > /tmp/backend-deploy-complete
+            
+            echo "[10] Estado final del deployment:"
+            pm2 status
+            curl -s http://localhost:3001/health || echo "Advertencia: API no responde en /health"
