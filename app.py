@@ -109,6 +109,16 @@ def get_videos():
 def healthcheck():
     return jsonify({"ok": True, "message": "API funcionando correctamente ✅"})
 
+@app.route('/health', methods=['GET'])
+@cross_origin()
+def health():
+    return jsonify({"status": "healthy", "timestamp": time.time()})
+
+@app.route('/api/health', methods=['GET'])
+@cross_origin()
+def api_health():
+    return jsonify({"status": "healthy", "service": "backend-api", "timestamp": time.time()})
+
 
 
 @app.route('/api/scrape-video-url', methods=['POST', 'OPTIONS'])

@@ -20,10 +20,17 @@ jobs:
           username: root
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
+            set -e
+            
+            echo "[1] Actualizando sistema base..."
             apt-get update
             apt-get install -y chromium-browser chromium-chromedriver
+            
+            echo "[2] Actualizando código backend..."
             cd /var/app/backend
             git pull origin main
+            
+            echo "[3] Configurando entorno Python..."
             if [ -d "venv" ]; then
               source venv/bin/activate
             else
@@ -32,8 +39,40 @@ jobs:
             fi
             pip install --upgrade pip
             pip install -r requirements.txt
-            pm2 delete api || true
-            pm2 prune
-            pm2 start app.py --name api --interpreter ./venv/bin/python
+            
+            echo "[4] Gestionando PM2 de forma limpia..."
+            # Verificar si el proceso existe y detenerlo correctamente
+            if pm2 describe api > /dev/null 2>&1; then
+              echo "Deteniendo proceso existente..."
+              pm2 stop api
+              pm2 delete api
+            fi
+            
+            # Verificar que el puerto esté libre
+            if lsof -i:3001 > /dev/null 2>&1; then
+              echo "Liberando puerto 3001..."
+              lsof -ti:3001 | xargs kill -9 || true
+              sleep 2
+            fi
+            
+            echo "[5] Iniciando nueva instancia de la API..."
+            pm2 start app.py --name api --interpreter /var/app/backend/venv/bin/python --instances 1
+            
+            echo "[6] Esperando que la API esté lista..."
+            # Verificar que la API responda
+            for i in {1..30}; do
+              if curl -s http://localhost:3001/health > /dev/null 2>&1 || curl -s http://localhost:3001 > /dev/null 2>&1; then
+                echo "API respondiendo correctamente"
+                break
+              fi
+              echo "Esperando API... ($i/30)"
+              sleep 2
+            done
+            
             pm2 save
+            
+            echo "[7] Recargando nginx..."
             nginx -t && systemctl reload nginx
+            
+            echo "[8] Creando señal de finalización para frontend..."
+            echo "$(date)" > /tmp/backend-deploy-complete
