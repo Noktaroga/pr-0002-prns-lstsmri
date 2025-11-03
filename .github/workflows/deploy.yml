@@ -50,27 +50,35 @@ jobs:
             which python3
             
             echo "Creando entorno virtual..."
-            echo "Ejecutando: python3 -m venv venv"
-            if python3 -m venv venv 2>&1; then
+            # Limpiar cualquier venv parcial
+            rm -rf venv
+            
+            echo "Ejecutando: python3 -m venv venv --clear"
+            if python3 -m venv venv --clear; then
               echo "✓ Entorno virtual creado exitosamente"
             else
-              echo "✗ Error al crear entorno virtual"
-              echo "Estado actual del directorio:"
-              ls -la
-              echo "Verificando módulo venv..."
-              python3 -m venv --help || echo "Módulo venv no funciona correctamente"
-              echo "Intentando instalar python3-venv..."
+              echo "✗ Error al crear entorno virtual, intentando alternativa..."
+              rm -rf venv
+              
+              # Método alternativo usando virtualenv
+              echo "Instalando virtualenv como alternativa..."
               apt-get update
-              apt-get install -y python3-venv python3-pip
-              echo "Reintentando creación de entorno virtual..."
-              echo "Ejecutando: python3 -m venv venv"
-              python3 -m venv venv 2>&1 || {
-                echo "Error persistente. Intentando crear directorio manualmente..."
-                mkdir -p venv/bin
+              apt-get install -y python3-virtualenv
+              
+              echo "Creando venv con virtualenv..."
+              if virtualenv -p python3 venv; then
+                echo "✓ Entorno virtual creado con virtualenv"
+              else
+                echo "Error con virtualenv también. Usando método manual..."
+                # Crear estructura mínima para pip install
+                mkdir -p venv/bin venv/lib/python3.12/site-packages
                 ln -sf /usr/bin/python3 venv/bin/python
                 ln -sf /usr/bin/python3 venv/bin/python3
-                echo "Directorio venv creado manualmente"
-              }
+                echo '#!/bin/bash' > venv/bin/activate
+                echo 'export VIRTUAL_ENV="/var/app/backend/venv"' >> venv/bin/activate
+                echo 'export PATH="$VIRTUAL_ENV/bin:$PATH"' >> venv/bin/activate
+                chmod +x venv/bin/activate
+              fi
             fi
             
             echo "Verificando que el entorno virtual se creó correctamente..."
