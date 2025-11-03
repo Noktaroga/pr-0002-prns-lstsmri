@@ -29,39 +29,36 @@ jobs:
             echo "[2] Actualizando código backend..."
             cd /var/app/backend
             
+            # Detener servicios antes de limpiar
+            echo "Deteniendo servicios PM2..."
+            pm2 stop api || true
+            pm2 delete api || true
+            
             # Limpiar archivos que puedan causar conflictos con git
             echo "Limpiando archivos temporales y entorno virtual anterior..."
             if [ -d "venv" ]; then
-              echo "Respaldando entorno virtual anterior..."
-              mv venv venv_backup_$(date +%s) || rm -rf venv
+              echo "Eliminando entorno virtual anterior..."
+              rm -rf venv
             fi
             
             # Limpiar otros archivos temporales
             rm -f *.log
             rm -rf __pycache__
             
-            # Actualizar código
+            # Actualizar código limpiamente
+            echo "Actualizando código desde repositorio..."
             git fetch origin main
             git reset --hard origin/main
+            git clean -fd
             
             echo "[3] Configurando entorno Python..."
-            if [ -d "venv" ]; then
-              source venv/bin/activate
-            else
-              python3 -m venv venv
-              source venv/bin/activate
-            fi
+            # Crear un nuevo entorno virtual siempre después de la limpieza
+            python3 -m venv venv
+            source venv/bin/activate
             pip install --upgrade pip
             pip install -r requirements.txt
             
-            echo "[4] Gestionando PM2 de forma limpia..."
-            # Verificar si el proceso existe y detenerlo correctamente
-            if pm2 describe api > /dev/null 2>&1; then
-              echo "Deteniendo proceso existente..."
-              pm2 stop api
-              pm2 delete api
-            fi
-            
+            echo "[4] Verificando puerto y preparando PM2..."
             # Verificar que el puerto esté libre
             if lsof -i:3001 > /dev/null 2>&1; then
               echo "Liberando puerto 3001..."
