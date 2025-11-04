@@ -1,0 +1,68 @@
+{
+  "domain": "https://yoursite.com",
+  "site_name": "PORNSTERS - Adult Entertainment",
+  "max_urls_per_sitemap": 50000,
+  "enable_video_sitemap": true,
+  "enable_image_sitemap": false,
+  "include_pagination": true,
+  "adult_content": true,
+  "age_verification_required": true,
+  
+  "data_sources": {
+    "videos": "data.json",
+    "categories": "data.json",
+    "performers": "data.json",
+    "api_endpoint": "http://localhost:3001/api"
+  },
+  
+  "url_patterns": {
+    "videos": "/videos/{id}/",
+    "categories": "/categories/{slug}/",
+    "performers": "/performers/{slug}/",
+    "tags": "/tags/{slug}/",
+    "search": "/search/?q={query}"
+  },
+  
+  "seo": {
+    "default_changefreq": "weekly",
+    "video_changefreq": "monthly",
+    "include_lastmod": true,
+    "include_priority": true,
+    "thumbnail_required": true
+  },
+  
+  "content_filters": {
+    "min_duration": 60,
+    "min_views": 50,
+    "exclude_draft": true,
+    "exclude_private": true,
+    "require_age_verification": true
+  },
+  
+  "priorities": {
+    "homepage": 1.0,
+    "categories": 0.9,
+    "videos": 0.8,
+    "performers": 0.7,
+    "tags": 0.6,
+    "search": 0.5,
+    "pages": 0.4
+  },
+  
+  "changefreqs": {
+    "homepage": "daily",
+    "categories": "weekly", 
+    "videos": "monthly",
+    "performers": "weekly",
+    "tags": "monthly",
+    "pages": "yearly"
+  },
+  
+  "adult_content_settings": {
+    "family_friendly": false,
+    "age_restriction": "18+",
+    "content_rating": "explicit",
+    "geographic_restrictions": [],
+    "require_age_verification": true
+  }
+}

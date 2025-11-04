@@ -1,5 +1,5 @@
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 from flask_cors import CORS, cross_origin
 import json
 import os
@@ -9,12 +9,56 @@ import time
 from urllib.parse import urljoin, unquote
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from datetime import datetime, timedelta
+from pathlib import Path
+
+# Import sitemap generator
+try:
+    from generate_sitemap import SitemapGenerator
+    SITEMAP_AVAILABLE = True
+except ImportError:
+    SITEMAP_AVAILABLE = False
+    print("Warning: Sitemap generator not available")
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
 PORT = int(os.environ.get('PORT', 3001))
 DATA_FILE = os.path.join(os.getcwd(), 'data.json')
+
+# Sitemap cache and configuration
+sitemap_cache = {}
+sitemap_cache_duration = timedelta(hours=1)
+
+def get_sitemap_generator():
+    """Get configured sitemap generator."""
+    if not SITEMAP_AVAILABLE:
+        return None
+    config_path = os.path.join(os.path.dirname(__file__), 'sitemap.config.json')
+    return SitemapGenerator(config_path)
+
+def serve_sitemap_cached(cache_key: str, generator_func):
+    """Serve sitemap with caching."""
+    now = datetime.now()
+    
+    # Check cache
+    if cache_key in sitemap_cache:
+        content, timestamp = sitemap_cache[cache_key]
+        if now - timestamp < sitemap_cache_duration:
+            return Response(content, mimetype='application/xml')
+    
+    # Generate new content
+    try:
+        generator = get_sitemap_generator()
+        if not generator:
+            return Response("Sitemap generator not available", status=500)
+            
+        content = generator_func(generator)
+        sitemap_cache[cache_key] = (content, now)
+        
+        return Response(content, mimetype='application/xml')
+    except Exception as e:
+        return Response(f"Error generating sitemap: {e}", status=500)
 
 
 # Endpoint para scraping headless con Selenium
@@ -138,6 +182,94 @@ def scrape_video_url():
             return jsonify({'error': 'No se encontró el video para esa página'}), 404
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# ==========================================
+# SITEMAP ROUTES
+# ==========================================
+
+@app.route('/sitemap.xml', methods=['GET'])
+@cross_origin()
+def main_sitemap():
+    """Serve main sitemap index."""
+    return serve_sitemap_cached('main', lambda gen: gen.generate_main_sitemap())
+
+@app.route('/sitemap-main.xml', methods=['GET'])
+@cross_origin()
+def main_pages_sitemap():
+    """Serve main pages sitemap."""
+    return serve_sitemap_cached('main-pages', lambda gen: gen.generate_main_pages_sitemap())
+
+@app.route('/sitemap-videos.xml', methods=['GET'])
+@cross_origin()
+def videos_sitemap():
+    """Serve videos sitemap."""
+    limit = request.args.get('limit', type=int)
+    cache_key = f'videos-{limit or "all"}'
+    return serve_sitemap_cached(cache_key, lambda gen: gen.generate_videos_sitemap(limit))
+
+@app.route('/sitemap-categories.xml', methods=['GET'])
+@cross_origin()
+def categories_sitemap():
+    """Serve categories sitemap."""
+    return serve_sitemap_cached('categories', lambda gen: gen.generate_categories_sitemap())
+
+@app.route('/sitemap-performers.xml', methods=['GET'])
+@cross_origin()
+def performers_sitemap():
+    """Serve performers sitemap."""
+    return serve_sitemap_cached('performers', lambda gen: gen.generate_performers_sitemap())
+
+@app.route('/api/sitemaps/generate', methods=['POST'])
+@cross_origin()
+def regenerate_sitemaps():
+    """API endpoint to regenerate all sitemaps."""
+    try:
+        # Clear cache
+        sitemap_cache.clear()
+        
+        generator = get_sitemap_generator()
+        if not generator:
+            return jsonify({'success': False, 'error': 'Sitemap generator not available'}), 500
+        
+        # Generate new sitemaps
+        output_dir = request.json.get('output_dir', '../frontend/public') if request.json else '../frontend/public'
+        results = generator.generate_all_sitemaps(output_dir)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Generated {len(results)} sitemaps',
+            'files': results,
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/sitemaps/status', methods=['GET'])
+@cross_origin()
+def sitemap_status():
+    """Get sitemap generation status and cache info."""
+    cache_info = {}
+    for key, (content, timestamp) in sitemap_cache.items():
+        age = datetime.now() - timestamp
+        cache_info[key] = {
+            'cached': True,
+            'age_seconds': age.total_seconds(),
+            'expires_in': (sitemap_cache_duration - age).total_seconds(),
+            'size_bytes': len(content)
+        }
+    
+    generator = get_sitemap_generator()
+    domain = generator.domain if generator else "Not configured"
+    
+    return jsonify({
+        'sitemap_available': SITEMAP_AVAILABLE,
+        'domain': domain,
+        'cache_duration_hours': sitemap_cache_duration.total_seconds() / 3600,
+        'cached_sitemaps': cache_info
+    })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=PORT)
