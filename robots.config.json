@@ -1,0 +1,58 @@
+{
+  "domain": "https://yoursite.com",
+  "environment": "production",
+  "seo": {
+    "allowGoogleBot": true,
+    "allowBingBot": true,
+    "allowYandexBot": false,
+    "allowOtherBots": false,
+    "includeSitemap": true,
+    "crawlDelay": 1
+  },
+  "paths": {
+    "allow": [
+      "/",
+      "/videos/",
+      "/categories/",
+      "/search/",
+      "/tags/",
+      "/performers/"
+    ],
+    "disallow": [
+      "/admin/",
+      "/api/",
+      "/private/",
+      "/user/",
+      "/auth/",
+      "/payment/",
+      "/temp/",
+      "/cache/",
+      "/backend/",
+      "*.json",
+      "*.xml",
+      "*.log",
+      "/preview/",
+      "/draft/",
+      "/selenium_scraper.py",
+      "/__pycache__/"
+    ]
+  },
+  "customRules": [
+    {
+      "userAgent": "Googlebot",
+      "allow": ["/videos/", "/categories/", "/search/"],
+      "disallow": ["/user/", "/private/", "/admin/"],
+      "crawlDelay": 1
+    },
+    {
+      "userAgent": "Bingbot",
+      "allow": ["/videos/", "/categories/"],
+      "disallow": ["/user/", "/private/", "/admin/", "/search/"],
+      "crawlDelay": 2
+    }
+  ],
+  "comments": {
+    "header": "Adult content site - Age verification required",
+    "footer": "For questions about this robots.txt, contact: webmaster@yoursite.com"
+  }
+}
