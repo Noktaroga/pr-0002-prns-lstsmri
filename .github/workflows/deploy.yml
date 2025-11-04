@@ -1,0 +1,139 @@
+name: Deploy Backend to VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.1.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            
+            # Configurar PATH para Node.js, npm y PM2
+            export PATH=/root/.nvm/versions/node/v24.11.0/bin:$PATH
+            
+            echo "[1] Actualizando sistema base..."
+            apt-get update
+            apt-get install -y chromium-browser chromium-chromedriver
+            
+            echo "[2] Preparando directorio backend..."
+            cd /var/app/backend
+            
+            # Detener servicios PM2
+            pm2 stop api || true
+            pm2 delete api || true
+            
+            # Limpiar archivos anteriores
+            rm -rf venv node_modules package*.json *.log __pycache__ venv_backup_*
+            
+            # Actualizar código
+            git fetch origin main
+            git reset --hard origin/main
+            git clean -fd
+            
+            echo "[3] Configurando entorno Python..."
+            echo "Verificando Python disponible..."
+            python3 --version
+            which python3
+            
+            echo "Creando entorno virtual..."
+            # Limpiar cualquier venv parcial
+            rm -rf venv
+            
+            echo "Ejecutando: python3 -m venv venv --clear"
+            if python3 -m venv venv --clear; then
+              echo "✓ Entorno virtual creado exitosamente"
+            else
+              echo "✗ Error al crear entorno virtual, intentando alternativa..."
+              rm -rf venv
+              
+              # Método alternativo usando virtualenv
+              echo "Instalando virtualenv como alternativa..."
+              apt-get update
+              apt-get install -y python3-virtualenv
+              
+              echo "Creando venv con virtualenv..."
+              if virtualenv -p python3 venv; then
+                echo "✓ Entorno virtual creado con virtualenv"
+              else
+                echo "Error con virtualenv también. Usando método manual..."
+                # Crear estructura mínima para pip install
+                mkdir -p venv/bin venv/lib/python3.12/site-packages
+                ln -sf /usr/bin/python3 venv/bin/python
+                ln -sf /usr/bin/python3 venv/bin/python3
+                echo '#!/bin/bash' > venv/bin/activate
+                echo 'export VIRTUAL_ENV="/var/app/backend/venv"' >> venv/bin/activate
+                echo 'export PATH="$VIRTUAL_ENV/bin:$PATH"' >> venv/bin/activate
+                chmod +x venv/bin/activate
+              fi
+            fi
+            
+            echo "Verificando que el entorno virtual se creó correctamente..."
+            if [ ! -d "venv" ]; then
+              echo "ERROR: El directorio venv no se creó"
+              exit 1
+            fi
+            
+            echo "Contenido del directorio venv/bin:"
+            ls -la venv/bin/
+            
+            # Buscar el ejecutable Python correcto
+            if [ -f "venv/bin/python3" ]; then
+              PYTHON_EXEC="venv/bin/python3"
+              echo "✓ Usando python3"
+            elif [ -f "venv/bin/python" ]; then
+              PYTHON_EXEC="venv/bin/python"
+              echo "✓ Usando python"
+            else
+              echo "ERROR: No se encuentra ejecutable Python en venv/bin/"
+              exit 1
+            fi
+            
+            echo "Activando entorno virtual..."
+            source venv/bin/activate
+            pip install --upgrade pip
+            pip install -r requirements.txt
+            
+            echo "[4] Liberando puerto 3001..."
+            lsof -ti:3001 | xargs kill -9 || true
+            sleep 2
+            
+            echo "[5] Iniciando API con PM2..."
+            pm2 start app.py --name api --interpreter ./$PYTHON_EXEC --instances 1
+            pm2 save
+            
+            echo "[6] Verificando API..."
+            sleep 5
+            for i in {1..20}; do
+              if curl -s http://localhost:3001/health > /dev/null 2>&1; then
+                echo "✓ API funcionando"
+                break
+              fi
+              sleep 2
+            done
+            
+            echo "[7] Verificando configuración Nginx SEO..."
+            # Verificar si la configuración SEO ya existe (debería estar configurada por frontend)
+            if ! grep -q "application/xml" /etc/nginx/sites-available/default 2>/dev/null; then
+              echo "⚠️  Advertencia: Configuración SEO no encontrada, verificar deploy del frontend"
+            else
+              echo "✓ Configuración SEO presente en Nginx"
+            fi
+            
+            echo "[8] Recargando nginx..."
+            nginx -t && systemctl reload nginx
+            
+            echo "$(date)" > /tmp/backend-deploy-complete
