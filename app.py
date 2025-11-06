@@ -239,12 +239,19 @@ def scrape_video_url():
 # ==========================================
 # SITEMAP ROUTES
 # ==========================================
-
 @app.route('/sitemap.xml', methods=['GET'])
 @cross_origin()
 def main_sitemap():
     """Serve main sitemap index."""
     return serve_sitemap_cached('main', lambda gen: gen.generate_main_sitemap())
+
+@app.route('/api/whatsnew')
+@cross_origin()
+def get_whatsnew():
+    json_path = os.path.join(os.path.dirname(__file__), 'whatsnew.json')
+    with open(json_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    return jsonify(data)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=PORT)
