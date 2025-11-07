@@ -95,3 +95,4 @@ data_backup.json
 *.backup
 temp/
 tmp/
+data.json
